@@ -10,7 +10,6 @@ def init():
 
 def run(raw_data):
     try:
-
         newimg = cv2.resize(raw_data, (int(28), int(28)))
         reshaped_img = newimg.reshape(1, 28, 28, 1)
 

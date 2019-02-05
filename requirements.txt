@@ -1,0 +1,4 @@
+Flask==0.10.1
+onnxruntime==0.1.4
+NumPy==1.15
+

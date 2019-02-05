@@ -19,3 +19,7 @@ def classify():
     classify_response = "".join(map(str, mlmodel.score.run(img)))
 
     return (classify_response)
+
+if __name__ == 'main':
+    app.run(debug = True, host='0.0.0.0')
+
