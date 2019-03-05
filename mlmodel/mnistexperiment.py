@@ -108,4 +108,5 @@ class DnnOnnX:
 
         ########  Conver to ONNX ############
         convert_model = winmltools.convert_keras(keras_model)
+
         winmltools.save_model(convert_model, onnx_model_name)
