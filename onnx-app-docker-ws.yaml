@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: onnxapps
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: onnxapps
+  strategy:
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 5 
+  template:
+    metadata:
+      labels:
+        app: onnxapps
+    spec:
+      nodeSelector:
+        "beta.kubernetes.io/os": linux
+      containers:
+      - name: onnxapps1
+        image: onnxopscontainerreg.azurecr.io/onnx-ops:latest 
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: 250m
+          limits:
+            cpu: 500m
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: onnxapps
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+  selector:
+    app: onnxapps       

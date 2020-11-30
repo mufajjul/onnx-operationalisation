@@ -1,4 +1,6 @@
 flask>=0.12.3
-onnxruntime==0.1.4
-NumPy==1.16
+onnxruntime
+NumPy
 pandas
+opencv-python
+numpyencoder

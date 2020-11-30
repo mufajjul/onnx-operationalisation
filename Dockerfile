@@ -1,12 +1,29 @@
-FROM ubuntu:latest
+FROM  python:3.6
 MAINTAINER mufajjul ali mufajjul.ali@gmail.com
-RUN apt-get update -y
-RUN apt-get install -y python-pip python-dev build-essential
 
-COPY ./webservice
-WORKDIR /webservice
+
+
+WORKDIR /onnxops
+
+COPY . .
+
+
+RUN apt-get -y update
+
+RUN apt-get install 'ffmpeg'\
+    'libsm6'\ 
+    'libxext6'  -y
+
+
 RUN pip install -r requirements.txt
-ENTRYPOINT ['python']
-CMD [mnistws.py]
 
+EXPOSE 5000
+
+ENV FLASK_APP=/onnxops/webservice/mnistws.py
+
+#ENTRYPOINT ["python3"]
+#CMD ["cd", "webservice"]
+
+WORKDIR /onnxops/webservice
+CMD ["flask", "run"]
 
