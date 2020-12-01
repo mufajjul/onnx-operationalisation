@@ -222,3 +222,7 @@ Full source code is available on GitHub:
 
 This guide is available to download on GitHub
 https://github.com/mufajjul/onnx-operationalisation/tree/master/docs
+
+#
+# Next Step:  Create and deploy a Docker container in Azure Kubernaties Service (https://github.com/mufajjul/onnx-operationalisation/tree/master/README2.md)
+

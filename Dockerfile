@@ -1,12 +1,12 @@
-FROM  python:3.6
-MAINTAINER mufajjul ali mufajjul.ali@gmail.com
+FROM tiangolo/uwsgi-nginx-flask:python3.8
 
+#docker container listens to for incoming request 
+#ENV LISTEN_PORT 8000
+#EXPOSE 9000
 
+WORKDIR onnxapp
 
-WORKDIR /onnxops
-
-COPY . .
-
+COPY . /onnxapp
 
 RUN apt-get -y update
 
@@ -14,16 +14,8 @@ RUN apt-get install 'ffmpeg'\
     'libsm6'\ 
     'libxext6'  -y
 
+RUN pip install -r /onnxapp/requirements.txt
 
-RUN pip install -r requirements.txt
+WORKDIR /onnxapp/app
 
-EXPOSE 5000
-
-ENV FLASK_APP=/onnxops/webservice/mnistws.py
-
-#ENTRYPOINT ["python3"]
-#CMD ["cd", "webservice"]
-
-WORKDIR /onnxops/webservice
-CMD ["flask", "run"]
-
+ENV NGINX_WORKER_PROCESSES auto

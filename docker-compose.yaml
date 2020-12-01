@@ -1,0 +1,11 @@
+services:
+  web:
+    image: onnx-ops:latest 
+    container_name: onnx-ops2   
+    ports:
+      - "8080:8080"
+    environment:
+      - FLASK_APP=main.py
+      - FLASK_DEBUG=1
+      - 'RUN=flask run --host=0.0.0.0 --port=8080'
+    command: flask run --host=0.0.0.0 --port=8080
