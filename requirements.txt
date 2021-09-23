@@ -4,3 +4,5 @@ NumPy
 pandas
 opencv-python
 numpyencoder
+winmltools
+tensorflow

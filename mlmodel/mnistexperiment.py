@@ -1,17 +1,21 @@
+import tensorflow as tf
 import onnx
 import winmltools
-import keras
-from keras.datasets import mnist
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
-from keras import backend
+from tensorflow import keras
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from tensorflow.keras import backend
 import matplotlib.pyplot as plt
+import datetime
 
 class DnnOnnX:
 
     max_batch_size = 200
     number_of_classes = 10
-    number_of_epocs = 20
+    number_of_epocs = 200
+    
+    log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
     def __init__(self, batch_size, total_classes, epochs_size):
 
@@ -39,8 +43,8 @@ class DnnOnnX:
             test_features =test_features.reshape(test_features.shape[0], image_row_size, image_column_size, 1)
             input_shape = (image_row_size, image_column_size,1)
 
-        train_label = keras.utils.to_categorical(train_label, self.number_of_classes)
-        test_label = keras.utils.to_categorical(test_label, self.number_of_classes)
+        train_label = tf.keras.utils.to_categorical(train_label, self.number_of_classes)
+        test_label = tf.keras.utils.to_categorical(test_label, self.number_of_classes)
 
         return train_features, train_label, test_features, test_label, input_shape
 
@@ -61,20 +65,36 @@ class DnnOnnX:
         keras_model.add(Dense(128, activation='relu'))
         keras_model.add(Dropout(0.5))
         keras_model.add(Dense(self.number_of_classes, activation='softmax'))
+        
+        
+        #adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+        #rmse_prop = tensorflow.keras.optimizers.RMSprop(learning_rate=0.001, momentum=0)
+        #ada_grad = tensorflow.keras.optimizers.Adagrad(learning_rate=0.001)
+        ada_delta = tf.keras.optimizers.Adadelta(learning_rate=0.01)
+        #SGD_optimizer = tensorflow.optimizers.SGD(learning_rate=0.01, momentum=0.7)
+#        keras_model.compile(loss=tensorflow.keras.losses.categorical_crossentropy,
+#                      optimizer=tensorflow.keras.optimizers.Adadelta(),
+#                      metrics=['accuracy'])
+        #nAdam_optimizer = tf.optimizers.Nadam(learning_rate=0.001)
+        
 
-        keras_model.compile(loss=keras.losses.categorical_crossentropy,
-                      optimizer=keras.optimizers.Adadelta(),
+        keras_model.compile(loss=tf.keras.losses.categorical_crossentropy,
+                      optimizer=ada_delta,
                       metrics=['accuracy'])
+
+
 
         return keras_model
 
     def train_model(self, model, train_features, train_label, test_features, test_label):
+        
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=self.log_dir, histogram_freq=1)        
 
         model_history = model.fit(train_features, train_label,
                   batch_size=self.max_batch_size,
                   epochs=self.number_of_epocs,
                   verbose=1,
-                  validation_data=(train_features, train_label))
+                  validation_data=(train_features, train_label), callbacks=[tensorboard_callback])
         score = model.evaluate(test_features, test_label, verbose=0)
         print('Test loss:', score[0])
         print('Test accuracy:', score[1])
