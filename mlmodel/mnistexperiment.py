@@ -1,4 +1,6 @@
+from os import makedirs
 import tensorflow as tf
+from tensorflow.python import tf2
 import onnx
 import winmltools
 from tensorflow import keras
@@ -7,7 +9,10 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
 from tensorflow.keras import backend
 import matplotlib.pyplot as plt
+import tensorflow_model_optimization as tfmot
 import datetime
+import os.path
+import numpy as np
 
 class DnnOnnX:
 
@@ -67,10 +72,10 @@ class DnnOnnX:
         keras_model.add(Dense(self.number_of_classes, activation='softmax'))
         
         
-        #adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+        adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         #rmse_prop = tensorflow.keras.optimizers.RMSprop(learning_rate=0.001, momentum=0)
         #ada_grad = tensorflow.keras.optimizers.Adagrad(learning_rate=0.001)
-        ada_delta = tf.keras.optimizers.Adadelta(learning_rate=0.01)
+        #ada_delta = tf.keras.optimizers.Adadelta(learning_rate=0.01)
         #SGD_optimizer = tensorflow.optimizers.SGD(learning_rate=0.01, momentum=0.7)
 #        keras_model.compile(loss=tensorflow.keras.losses.categorical_crossentropy,
 #                      optimizer=tensorflow.keras.optimizers.Adadelta(),
@@ -79,7 +84,7 @@ class DnnOnnX:
         
 
         keras_model.compile(loss=tf.keras.losses.categorical_crossentropy,
-                      optimizer=ada_delta,
+                      optimizer=adam_optimizer,
                       metrics=['accuracy'])
 
 
@@ -115,8 +120,8 @@ class DnnOnnX:
 
         # Plot the Accuracy Curves
         plt.figure(figsize=[10, 8])
-        plt.plot(model_history.history['acc'], 'r', linewidth=2.0)
-        plt.plot(model_history.history['val_acc'], 'b', linewidth=2.0)
+        plt.plot(model_history.history['accuracy'], 'r', linewidth=2.0)
+        plt.plot(model_history.history['val_accuracy'], 'b', linewidth=2.0)
         plt.legend(['Training Accuracy', 'Validation Accuracy'], fontsize=15)
         plt.xlabel('Epochs ', fontsize=13)
         plt.ylabel('Accuracy', fontsize=13)
@@ -124,8 +129,105 @@ class DnnOnnX:
         plt.show()
 
 
+    def quantized_training(self, model, train_features, train_label, test_features, test_label):
+        
+        
+        quantize_model = tfmot.quantization.keras.quantize_model
+        q_aware_model = quantize_model (model)
+        
+        adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+        q_aware_model.compile(loss=tf.keras.losses.categorical_crossentropy,
+                      optimizer=adam_optimizer,
+                      metrics=['accuracy'])
+        
+               
+        tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir=self.log_dir, histogram_freq=1)        
+
+        model_history = q_aware_model.fit(train_features, train_label,
+                  batch_size=self.max_batch_size,
+                  epochs=self.number_of_epocs,
+                  verbose=1,
+                  validation_data=(train_features, train_label), callbacks=[tensorboard_callback])
+        
+        score = q_aware_model.evaluate(test_features, test_label, verbose=0)
+        
+        print('Test loss:', score[0])
+        print('Test accuracy:', score[1])
+
+        return model_history, q_aware_model
+             
+
     def convert_to_onnx(self, keras_model, onnx_model_name):
 
         ########  Conver to ONNX ############
         convert_model = winmltools.convert_keras(keras_model)
         winmltools.save_model(convert_model, onnx_model_name)
+        
+    def save_model (self, keras_model, save_model_path):
+        keras_model.save (save_model_path)
+    
+    
+    # convert to TF lite model with out quantization  
+    def post_training_convert_to_tf_lite(self, saved_model_path, new_model_save_path):
+        converter = tf.lite.TFLiteConverter.from_saved_model(saved_model_path)
+        tflite_model = converter.convert()
+        #tflite_model.save(new_model_save_path)
+        
+        if (not (os.path.isdir(new_model_save_path))):
+            os.makedirs(new_model_save_path)
+        
+        with open (new_model_save_path+"/tf_model.tflite", 'wb') as f:
+            f.write (tflite_model)
+            
+        return tflite_model
+        
+        
+    # apply quantization to tf lite model 
+    #apply_quantized tf lite modle     
+    def post_training_apply_quantization (self, tf_lite_model_path, new_tf_lite_quantized_model):
+        converter = tf.lite.TFLiteConverter.from_saved_model(tf_lite_model_path)
+        converter.optimizations = [tf.lite.Optimize.DEFAULT]
+        tflite_quant_model = converter.convert()
+        #tflite_quant_model.save(new_tf_lite_quantized_model)
+        
+        if (not (os.path.isdir(new_tf_lite_quantized_model))):
+            os.makedirs (new_tf_lite_quantized_model)
+        
+        with open (new_tf_lite_quantized_model+"/tf_quan_model.tflite", 'wb') as f:
+            f.write (tflite_quant_model)
+            
+        return tflite_quant_model
+    
+            
+    def test_model (self, model_path, test_features, test_label):        
+        
+        interpreter = tf.lite.Interpreter(model_path=model_path)
+        interpreter.allocate_tensors()
+
+        # Get input and output tensors.
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+
+        # Test the model on random input data.
+        input_shape = input_details[0]['shape']
+        
+        print ('input shape', input_shape)
+        print (test_features.shape)
+        print (test_features[0:1:].shape)
+        
+        #input_data = np.array(np.random.random_sample(input_shape), dtype=np.float32)
+        interpreter.set_tensor(input_details[0]['index'], test_features[0:1:])
+
+        interpreter.invoke()
+
+        # The function `get_tensor()` returns a copy of the tensor data.
+        # Use `tensor()` in order to get a pointer to the tensor.
+        output_data = interpreter.get_tensor(output_details[0]['index'])
+        print(output_data)
+        print (test_label.shape)
+        print (test_label[0])
+        
+        #score = model.evaluate(test_features, test_label, verbose=0)
+        #print('Test loss:', score[0])
+        #print('Test accuracy:', score[1])
+        
