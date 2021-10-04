@@ -3,22 +3,31 @@ import tensorflow as tf
 from tensorflow.python import tf2
 import onnx
 import winmltools
-from tensorflow import keras
+#from tensorflow import keras
 from tensorflow.keras.datasets import mnist
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D
+from tensorflow.keras.layers import Dense, Dropout, Flatten, Conv2D, MaxPooling2D, BatchNormalization
 from tensorflow.keras import backend
 import matplotlib.pyplot as plt
 import tensorflow_model_optimization as tfmot
 import datetime
 import os.path
 import numpy as np
+#import keras2onnx
+import tf2onnx
+from numpy.random import seed
 
 class DnnOnnX:
 
     max_batch_size = 200
     number_of_classes = 10
     number_of_epocs = 200
+
+    config = tf.compat.v1.ConfigProto(gpu_options=tf.compat.v1.GPUOptions(allow_growth=True))
+    sess = tf.compat.v1.Session(config=config)
+
+    seed(1)
+    tf.random.set_seed(89)
     
     log_dir = "logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
@@ -60,18 +69,36 @@ class DnnOnnX:
         keras_model.add(Conv2D(16, strides= (1,1), padding= 'valid', kernel_size=(3, 3),
                      activation='relu',
                      input_shape=input_shape))
+        
+        keras_model.add (BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001, center=True, scale=True,
+            beta_initializer='zeros', gamma_initializer='ones',
+            moving_mean_initializer='zeros',
+            moving_variance_initializer='ones', beta_regularizer=None,
+            gamma_regularizer=None, beta_constraint=None, gamma_constraint=None))        
         keras_model.add(Conv2D(32, (3, 3), activation='relu'))
         keras_model.add(MaxPooling2D(pool_size=(2, 2)))
         keras_model.add(Dropout(0.25))
+        
+        keras_model.add (BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001, center=True, scale=True,
+            beta_initializer='zeros', gamma_initializer='ones',
+            moving_mean_initializer='zeros',
+            moving_variance_initializer='ones', beta_regularizer=None,
+            gamma_regularizer=None, beta_constraint=None, gamma_constraint=None))
         keras_model.add(Conv2D(64, (3, 3), activation='relu'))
         keras_model.add(MaxPooling2D(pool_size=(2, 2)))
         keras_model.add(Dropout(0.25))
         keras_model.add(Flatten())
+        
+        keras_model.add (BatchNormalization(axis=-1, momentum=0.99, epsilon=0.001, center=True, scale=True,
+            beta_initializer='zeros', gamma_initializer='ones',
+            moving_mean_initializer='zeros',
+            moving_variance_initializer='ones', beta_regularizer=None,
+            gamma_regularizer=None, beta_constraint=None, gamma_constraint=None))
         keras_model.add(Dense(128, activation='relu'))
+        
         keras_model.add(Dropout(0.5))
         keras_model.add(Dense(self.number_of_classes, activation='softmax'))
-        
-        
+                
         adam_optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
         #rmse_prop = tensorflow.keras.optimizers.RMSprop(learning_rate=0.001, momentum=0)
         #ada_grad = tensorflow.keras.optimizers.Adagrad(learning_rate=0.001)
@@ -160,8 +187,18 @@ class DnnOnnX:
     def convert_to_onnx(self, keras_model, onnx_model_name):
 
         ########  Conver to ONNX ############
-        convert_model = winmltools.convert_keras(keras_model)
-        winmltools.save_model(convert_model, onnx_model_name)
+        #convert_model = winmltools.convert_keras(keras_model, 9)
+        #winmltools.save_model(convert_model, onnx_model_name)
+        
+        #onnx_model = keras2onnx.convert_keras(keras_model, keras_model.name)
+        #onnx.save_model(onnx_model, onnx_model_name)
+        
+        spec = (tf.TensorSpec((None, 28, 28, 1), tf.float32, name="input"),)
+        #output_path = keras_model.name + ".onnx"
+        
+
+        onnx_model, _ = tf2onnx.convert.from_keras(keras_model, input_signature=spec, opset=13, output_path=onnx_model_name)
+        
         
     def save_model (self, keras_model, save_model_path):
         keras_model.save (save_model_path)
@@ -199,7 +236,7 @@ class DnnOnnX:
         return tflite_quant_model
     
             
-    def test_model (self, model_path, test_features, test_label):        
+    def test_tf_lite_model (self, model_path, test_features, test_label):        
         
         interpreter = tf.lite.Interpreter(model_path=model_path)
         interpreter.allocate_tensors()
